@@ -5,7 +5,7 @@ Provides connection management, schema initialization, and context manager suppo
 """
 import sqlite3
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 from lineage.storage.schema import get_schema_statements, SCHEMA_VERSION
 
@@ -134,7 +134,7 @@ class DatabaseManager:
         if self.connection:
             self.connection.rollback()
     
-    def get_table_names(self) -> list[str]:
+    def get_table_names(self) -> List[str]:
         """
         Get list of all table names in database.
         
