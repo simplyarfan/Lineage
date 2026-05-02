@@ -59,6 +59,7 @@ class DatabaseManager:
         if not self.connection:
             self._connect()
         
+        assert self.connection is not None, "Connection should be established"
         cursor = self.connection.cursor()
         
         # Execute all schema statements
@@ -107,9 +108,10 @@ class DatabaseManager:
         """
         if not self.connection:
             self._connect()
+        assert self.connection is not None, "Connection should be established"
         return self.connection.execute(query, params)
     
-    def executemany(self, query: str, params_list: list):
+    def executemany(self, query: str, params_list: List):
         """
         Execute a query with multiple parameter sets.
         
@@ -122,6 +124,7 @@ class DatabaseManager:
         """
         if not self.connection:
             self._connect()
+        assert self.connection is not None, "Connection should be established"
         return self.connection.executemany(query, params_list)
     
     def commit(self):
@@ -161,5 +164,3 @@ class DatabaseManager:
             (table_name,)
         )
         return cursor.fetchone() is not None
-
-# Made with Bob
