@@ -52,16 +52,124 @@ def init(repo):
 @click.option(
     "--sessions",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    help="Path to AI session exports directory",
+    default="./bob_sessions",
+    help="Path to AI session exports directory (default: ./bob_sessions)",
 )
-def scan(sessions):
+@click.option(
+    "--repo",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=".",
+    help="Path to git repository (default: current directory)",
+)
+def scan(sessions, repo):
     """
     Ingest AI session exports into Lineage database.
     
-    [Phase 3] Parses Bob session exports and stores them for attribution.
+    Discovers and parses Bob session markdown exports, storing them for attribution.
+    Skips duplicates based on session_id.
     """
-    click.echo("⚠ Phase 3 will implement this")
-    click.echo("This command will parse AI session exports (Bob JSON) and store them in the database.")
+    import json
+    from lineage.storage.database import DatabaseManager
+    from lineage.adapters.bob import BobSessionAdapter
+    
+    repo_path = Path(repo).resolve()
+    sessions_path = Path(sessions).resolve()
+    db_path = repo_path / ".lineage" / "lineage.db"
+    
+    # Check if database exists
+    if not db_path.exists():
+        click.echo("✗ Lineage database not found. Run 'lineage init' first.")
+        return
+    
+    # Discover all .md files in sessions directory
+    md_files = list(sessions_path.rglob("*.md"))
+    
+    if not md_files:
+        click.echo(f"✗ No .md files found in {sessions_path}")
+        return
+    
+    click.echo(f"Found {len(md_files)} markdown file(s) in {sessions_path}")
+    
+    # Parse sessions
+    adapter = BobSessionAdapter()
+    parsed_sessions = []
+    skipped_files = []
+    
+    for md_file in md_files:
+        try:
+            if adapter.validate_export(md_file):
+                sessions_list = adapter.parse(md_file)
+                parsed_sessions.extend(sessions_list)
+                click.echo(f"  ✓ Parsed {md_file.name}")
+            else:
+                skipped_files.append(md_file.name)
+                click.echo(f"  ⊘ Skipped {md_file.name} (not a Bob export)")
+        except Exception as e:
+            skipped_files.append(md_file.name)
+            click.echo(f"  ✗ Failed to parse {md_file.name}: {e}")
+    
+    if not parsed_sessions:
+        click.echo("✗ No valid sessions parsed")
+        return
+    
+    # Insert sessions into database
+    db = DatabaseManager(db_path)
+    inserted = 0
+    duplicates = 0
+    
+    try:
+        for session in parsed_sessions:
+            try:
+                # Convert files_modified list to JSON string
+                files_json = json.dumps(session.files_modified) if session.files_modified else None
+                
+                # Insert session (will skip if session_id already exists)
+                cursor = db.execute(
+                    """
+                    INSERT OR IGNORE INTO sessions (
+                        id, session_id, timestamp_start, timestamp_end, model, tool,
+                        total_turns, files_modified, status, user_email, prompt_text,
+                        api_cost, tokens_input, tokens_output
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session.id,
+                        session.session_id,
+                        session.timestamp_start,
+                        session.timestamp_end,
+                        session.model,
+                        session.tool,
+                        session.total_turns,
+                        files_json,
+                        session.status,
+                        session.user_email,
+                        session.prompt_text,
+                        session.api_cost,
+                        session.tokens_input,
+                        session.tokens_output,
+                    ),
+                )
+                
+                # Check if row was inserted (rowcount > 0 means insert succeeded)
+                if cursor.rowcount > 0:
+                    inserted += 1
+                else:
+                    duplicates += 1
+                    
+            except Exception as e:
+                click.echo(f"  ✗ Failed to insert session {session.session_id}: {e}")
+        
+        db.commit()
+        
+    finally:
+        db.close()
+    
+    # Summary
+    click.echo(f"\n✓ Scanned {len(md_files)} files, parsed {len(parsed_sessions)} sessions")
+    click.echo(f"  • Inserted: {inserted}")
+    click.echo(f"  • Duplicates skipped: {duplicates}")
+    if skipped_files:
+        click.echo(f"  • Files skipped: {len(skipped_files)}")
 
 
 @cli.command()
