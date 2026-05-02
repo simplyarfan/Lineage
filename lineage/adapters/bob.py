@@ -4,11 +4,15 @@ IBM Bob session adapter.
 Parses Bob's markdown conversation transcript exports into Session objects.
 Bob exports are markdown files containing the full conversation history with
 embedded environment metadata and cost tracking.
+
+Supports sidecar .meta.json files for accurate session metadata (Task ID,
+API cost, tokens) that isn't embedded in the markdown exports.
 """
 import re
+import json
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 from lineage.adapters.base import SessionAdapter
 from lineage.core.models import Session
@@ -26,8 +30,8 @@ class BobSessionAdapter(SessionAdapter):
     - Tool calls showing file operations
     - Final cost summary
     
-    This adapter extracts session metadata and normalizes it into the
-    Lineage Session model.
+    Supports sidecar .meta.json files containing accurate consumption
+    metadata (Task ID, API cost, tokens) from Bob's UI panel.
     """
     
     def parse(self, export_path: Path) -> List[Session]:
@@ -52,30 +56,73 @@ class BobSessionAdapter(SessionAdapter):
         
         content = export_path.read_text(encoding='utf-8')
         
-        # Extract session metadata
-        session_id = self._extract_session_id(export_path, content)
+        # Try to load sidecar metadata
+        sidecar = self._load_sidecar(export_path)
+        
+        # Extract session metadata (prefer sidecar, fallback to markdown)
+        if sidecar:
+            session_id = sidecar.get('task_id', export_path.stem)
+            model = sidecar.get('model', 'ibm-bob')
+            tool = sidecar.get('tool', 'ibm-bob')
+            api_cost = sidecar.get('api_cost', 0.0)
+            tokens_input = sidecar.get('tokens_input', 0)
+            tokens_output = sidecar.get('tokens_output', 0)
+            user_email = sidecar.get('user_email')
+            
+            # Parse timestamp from sidecar
+            timestamp_str = sidecar.get('timestamp')
+            if timestamp_str:
+                try:
+                    dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    timestamp_start = int(dt.timestamp())
+                    timestamp_end = timestamp_start  # Sidecar has single timestamp
+                except Exception as e:
+                    logger.warning(f"Failed to parse sidecar timestamp: {e}")
+                    timestamps = self._extract_timestamps(content)
+                    timestamp_start = timestamps['start']
+                    timestamp_end = timestamps['end']
+            else:
+                timestamps = self._extract_timestamps(content)
+                timestamp_start = timestamps['start']
+                timestamp_end = timestamps['end']
+        else:
+            # Fallback to markdown parsing
+            logger.warning(
+                f"No sidecar found for {export_path.name} — using filename as session_id. "
+                f"Create a .meta.json sidecar for accurate session tracking."
+            )
+            session_id = self._extract_session_id(export_path, content)
+            model = "ibm-bob"
+            tool = "ibm-bob"
+            api_cost = self._extract_api_cost(content)
+            tokens = self._extract_tokens(content)
+            tokens_input = tokens['input']
+            tokens_output = tokens['output']
+            user_email = None
+            timestamps = self._extract_timestamps(content)
+            timestamp_start = timestamps['start']
+            timestamp_end = timestamps['end']
+        
+        # Always extract from markdown (not in sidecar)
         prompt_text = self._extract_prompt(content)
-        timestamps = self._extract_timestamps(content)
-        api_cost = self._extract_api_cost(content)
-        tokens = self._extract_tokens(content)
         files_modified = self._extract_files_modified(content)
         
         # Create Session object
         session = Session(
             id=session_id,
             session_id=session_id,
-            timestamp_start=timestamps['start'],
-            timestamp_end=timestamps['end'],
-            model="ibm-bob",  # Bob doesn't expose model in exports
-            tool="ibm-bob",
+            timestamp_start=timestamp_start,
+            timestamp_end=timestamp_end,
+            model=model,
+            tool=tool,
             total_turns=self._count_turns(content),
             files_modified=files_modified,
             status="complete",
-            user_email=None,  # Not available in Bob exports
+            user_email=user_email,
             prompt_text=prompt_text,
             api_cost=api_cost,
-            tokens_input=tokens['input'],
-            tokens_output=tokens['output'],
+            tokens_input=tokens_input,
+            tokens_output=tokens_output,
         )
         
         logger.info(f"Parsed Bob session: {session_id} (cost: ${api_cost:.2f})")
@@ -104,21 +151,54 @@ class BobSessionAdapter(SessionAdapter):
             logger.warning(f"Failed to validate {export_path}: {e}")
             return False
     
+    def _load_sidecar(self, export_path: Path) -> Optional[Dict]:
+        """
+        Load sidecar .meta.json file if it exists.
+        
+        For export at path/to/01-architecture.md, looks for
+        path/to/01-architecture.meta.json
+        
+        Args:
+            export_path: Path to the .md export file
+            
+        Returns:
+            Dict with sidecar metadata, or None if not found
+        """
+        # Construct sidecar path: replace .md with .meta.json
+        sidecar_path = export_path.with_suffix('').with_suffix('.meta.json')
+        
+        if not sidecar_path.exists():
+            return None
+        
+        try:
+            with open(sidecar_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            logger.debug(f"Loaded sidecar metadata from {sidecar_path.name}")
+            return data
+        except Exception as e:
+            logger.warning(f"Failed to load sidecar {sidecar_path.name}: {e}")
+            return None
+    
     def _extract_session_id(self, export_path: Path, content: str) -> str:
         """
-        Extract or generate session ID.
+        Extract or generate session ID from markdown content.
         
-        Bob exports don't have explicit session IDs. We derive from:
-        1. Filename pattern (e.g., "01-architecture.md" → "01-architecture")
-        2. Task ID if present in content
-        3. Fallback to filename stem
+        Bob exports may contain Task IDs in the consumption summary metadata.
+        The Task ID is a UUID in format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        
+        Fallback to filename stem if Task ID can't be extracted.
         """
-        # Try to find Task Id in content
-        task_id_match = re.search(r'Task Id[:\s]+([a-f0-9-]+)', content, re.IGNORECASE)
+        # Try to find Task Id UUID in content
+        # Pattern matches standard UUID format (8-4-4-4-12 hex digits)
+        task_id_match = re.search(
+            r'Task\s+Id[:\s]+([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})',
+            content,
+            re.IGNORECASE
+        )
         if task_id_match:
             return task_id_match.group(1)
         
-        # Use filename stem as session ID
+        # Fallback: use filename stem as session ID
         return export_path.stem
     
     def _extract_prompt(self, content: str) -> Optional[str]:

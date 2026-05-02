@@ -174,6 +174,125 @@ def scan(sessions, repo):
 
 @cli.command()
 @click.option(
+    "--repo",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=".",
+    help="Path to git repository (default: current directory)",
+)
+def stats(repo):
+    """
+    Show cumulative AI usage statistics.
+    
+    Displays session count, total cost, token usage, and breakdowns by tool/model.
+    """
+    from lineage.storage.database import DatabaseManager
+    from datetime import datetime
+    
+    repo_path = Path(repo).resolve()
+    db_path = repo_path / ".lineage" / "lineage.db"
+    
+    # Check if database exists
+    if not db_path.exists():
+        click.echo("✗ Lineage database not found. Run 'lineage init' first.")
+        return
+    
+    db = DatabaseManager(db_path)
+    
+    try:
+        # Check if sessions table has data
+        cursor = db.execute("SELECT COUNT(*) as count FROM sessions")
+        row = cursor.fetchone()
+        total_sessions = row['count'] if row else 0
+        
+        if total_sessions == 0:
+            click.echo("No sessions found. Run 'lineage scan' first.")
+            return
+        
+        # Get cumulative statistics
+        cursor = db.execute("""
+            SELECT
+                SUM(api_cost) as total_cost,
+                SUM(tokens_input) as total_input,
+                SUM(tokens_output) as total_output,
+                MIN(timestamp_start) as first_session,
+                MAX(timestamp_end) as last_session
+            FROM sessions
+        """)
+        stats_row = cursor.fetchone()
+        
+        total_cost = stats_row['total_cost'] if stats_row['total_cost'] else 0.0
+        total_input = stats_row['total_input'] if stats_row['total_input'] else 0
+        total_output = stats_row['total_output'] if stats_row['total_output'] else 0
+        first_session = stats_row['first_session']
+        last_session = stats_row['last_session']
+        
+        # Get by-tool breakdown
+        cursor = db.execute("""
+            SELECT tool, COUNT(*) as count, SUM(api_cost) as cost
+            FROM sessions
+            GROUP BY tool
+            ORDER BY cost DESC
+        """)
+        by_tool = cursor.fetchall()
+        
+        # Get by-model breakdown
+        cursor = db.execute("""
+            SELECT model, COUNT(*) as count, SUM(api_cost) as cost
+            FROM sessions
+            GROUP BY model
+            ORDER BY cost DESC
+        """)
+        by_model = cursor.fetchall()
+        
+        # Format timestamps
+        first_dt = datetime.fromtimestamp(first_session).strftime('%Y-%m-%d %H:%M UTC') if first_session else 'N/A'
+        last_dt = datetime.fromtimestamp(last_session).strftime('%Y-%m-%d %H:%M UTC') if last_session else 'N/A'
+        
+        # Print formatted output
+        click.echo("╭─────────────────────────────────────────╮")
+        click.echo("│  Lineage — AI Usage Summary             │")
+        click.echo("╰─────────────────────────────────────────╯")
+        click.echo()
+        click.echo(f"Total AI sessions:     {total_sessions}")
+        click.echo(f"Cumulative spend:      {total_cost:.2f} Bobcoins")
+        
+        if total_input > 0:
+            click.echo(f"Total input tokens:    {total_input:,}")
+        else:
+            click.echo(f"Total input tokens:    N/A")
+            
+        if total_output > 0:
+            click.echo(f"Total output tokens:   {total_output:,}")
+        else:
+            click.echo(f"Total output tokens:   N/A")
+            
+        click.echo(f"First session:         {first_dt}")
+        click.echo(f"Last session:          {last_dt}")
+        click.echo()
+        
+        if by_tool:
+            click.echo("By tool:")
+            for row in by_tool:
+                tool = row['tool']
+                count = row['count']
+                cost = row['cost'] if row['cost'] else 0.0
+                click.echo(f"  {tool:<20} {count} sessions    {cost:.2f} coins")
+            click.echo()
+        
+        if by_model:
+            click.echo("By model:")
+            for row in by_model:
+                model = row['model']
+                count = row['count']
+                cost = row['cost'] if row['cost'] else 0.0
+                click.echo(f"  {model:<20} {count} sessions    {cost:.2f} coins")
+        
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.option(
     "--threshold",
     type=float,
     default=0.4,

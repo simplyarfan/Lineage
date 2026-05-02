@@ -19,12 +19,13 @@ class TestBobSessionAdapter:
     
     def test_parse_architecture_session(self):
         """
-        Test parsing of 01-architecture.md export.
+        Test parsing of 01-architecture.md export with sidecar.
         
         Verifies:
-        - Session ID is extracted correctly
-        - API cost is parsed from final cost entry
+        - Session ID is extracted from sidecar (UUID)
+        - API cost is from sidecar (0.36)
         - Tool is set to "ibm-bob"
+        - Model is from sidecar
         - Prompt text is extracted from <task> block
         """
         adapter = BobSessionAdapter()
@@ -33,17 +34,24 @@ class TestBobSessionAdapter:
         assert len(sessions) == 1
         session = sessions[0]
         
-        # Session ID should be derived from filename
-        assert session.session_id == "01-architecture"
+        # Session ID should be UUID from sidecar
+        assert session.session_id == "c8627508-19a6-4b7b-be70-3620f38fa936"
         
-        # API cost from final cost entry ($0.30 is the actual final cost)
-        assert session.api_cost == 0.30
+        # API cost from sidecar (exact value)
+        assert session.api_cost == 0.36
         
-        # Tool should be hardcoded to ibm-bob
+        # Tool from sidecar
         assert session.tool == "ibm-bob"
         
-        # Model should be ibm-bob (Bob doesn't expose model in exports)
-        assert session.model == "ibm-bob"
+        # Model from sidecar
+        assert session.model == "claude-sonnet-4"
+        
+        # Tokens from sidecar
+        assert session.tokens_input == 134600
+        assert session.tokens_output == 11400
+        
+        # User email from sidecar
+        assert session.user_email == "syedarfan101@gmail.com"
         
         # Prompt should be extracted from <task> block
         assert session.prompt_text is not None
@@ -59,11 +67,11 @@ class TestBobSessionAdapter:
     
     def test_parse_scaffold_session(self):
         """
-        Test parsing of 02-scaffold.md export.
+        Test parsing of 02-scaffold.md export with sidecar.
         
         Verifies:
-        - Session ID is extracted correctly
-        - API cost is parsed correctly ($6.55 based on search results)
+        - Session ID is extracted from sidecar (UUID)
+        - API cost is from sidecar (6.55)
         - Tool is set to "ibm-bob"
         - Files modified list is extracted (may be incomplete)
         """
@@ -73,14 +81,21 @@ class TestBobSessionAdapter:
         assert len(sessions) == 1
         session = sessions[0]
         
-        # Session ID should be derived from filename
-        assert session.session_id == "02-scaffold"
+        # Session ID should be UUID from sidecar
+        assert session.session_id == "a2107662-1f9c-4e0a-b464-d4078e748b9d"
         
-        # API cost from final cost entry ($6.36 based on search results)
-        assert session.api_cost == 6.36
+        # API cost from sidecar (exact value)
+        assert session.api_cost == 6.55
         
-        # Tool should be hardcoded to ibm-bob
+        # Tool from sidecar
         assert session.tool == "ibm-bob"
+        
+        # Model from sidecar
+        assert session.model == "claude-sonnet-4"
+        
+        # Tokens from sidecar
+        assert session.tokens_input == 2600000
+        assert session.tokens_output == 20000
         
         # Prompt should be extracted
         assert session.prompt_text is not None
@@ -159,11 +174,11 @@ class TestBobSessionAdapter:
         
         # First row should be architecture session (lower cost)
         assert rows[0]['tool'] == 'ibm-bob'
-        assert rows[0]['api_cost'] == 0.30
+        assert rows[0]['api_cost'] == 0.36
         
         # Second row should be scaffold session (higher cost)
         assert rows[1]['tool'] == 'ibm-bob'
-        assert rows[1]['api_cost'] == 6.36
+        assert rows[1]['api_cost'] == 6.55
         
         db.close()
     
@@ -179,28 +194,63 @@ class TestBobSessionAdapter:
         assert adapter.validate_export(Path("nonexistent.md")) is False
     
     def test_extract_session_id(self):
-        """Test session ID extraction from filename."""
+        """Test session ID extraction from sidecar."""
         adapter = BobSessionAdapter()
         
-        # Read content for extraction
-        content = ARCHITECTURE_EXPORT.read_text()
-        
-        # Should extract from filename
-        session_id = adapter._extract_session_id(ARCHITECTURE_EXPORT, content)
-        assert session_id == "01-architecture"
+        # With sidecar, should get UUID
+        sidecar = adapter._load_sidecar(ARCHITECTURE_EXPORT)
+        assert sidecar is not None
+        assert sidecar['task_id'] == "c8627508-19a6-4b7b-be70-3620f38fa936"
     
     def test_extract_api_cost(self):
-        """Test API cost extraction from various formats."""
+        """Test API cost extraction from sidecar."""
         adapter = BobSessionAdapter()
         
-        # Test with architecture export
-        arch_content = ARCHITECTURE_EXPORT.read_text()
-        arch_cost = adapter._extract_api_cost(arch_content)
-        assert arch_cost == 0.30
+        # Test with architecture export sidecar
+        arch_sidecar = adapter._load_sidecar(ARCHITECTURE_EXPORT)
+        assert arch_sidecar is not None
+        assert arch_sidecar['api_cost'] == 0.36
         
-        # Test with scaffold export
-        scaffold_content = SCAFFOLD_EXPORT.read_text()
-        scaffold_cost = adapter._extract_api_cost(scaffold_content)
-        assert scaffold_cost == 6.36
+        # Test with scaffold export sidecar
+        scaffold_sidecar = adapter._load_sidecar(SCAFFOLD_EXPORT)
+        assert scaffold_sidecar is not None
+        assert scaffold_sidecar['api_cost'] == 6.55
+    
+    def test_parse_without_sidecar(self, tmp_path):
+        """Test parsing a markdown file without sidecar falls back gracefully."""
+        adapter = BobSessionAdapter()
+        
+        # Create a minimal Bob export without sidecar
+        test_export = tmp_path / "test-session.md"
+        test_export.write_text("""
+**User:**
+
+<task>
+Test task for parsing without sidecar
+</task>
+<environment_details>
+# Current Cost
+$1.50
+</environment_details>
+
+**Assistant:**
+
+Test response
+""")
+        
+        # Parse should work with fallback
+        sessions = adapter.parse(test_export)
+        assert len(sessions) == 1
+        session = sessions[0]
+        
+        # Should fall back to filename for session_id
+        assert session.session_id == "test-session"
+        
+        # Should extract cost from markdown
+        assert session.api_cost == 1.50
+        
+        # Should have defaults for missing fields
+        assert session.model == "ibm-bob"
+        assert session.tool == "ibm-bob"
 
 # Made with Bob
