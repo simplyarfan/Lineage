@@ -11,9 +11,14 @@ export default function Nav() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group">
           <div className="w-7 h-7 bg-indigo-600 rounded-md flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 2h4v4H2zM8 2h4v4H8zM2 8h4v4H2zM8 8h4v4H8z" fill="white" opacity="0.9"/>
-              <path d="M4 4L10 10M10 4L4 10" stroke="white" strokeWidth="1.2" opacity="0.5"/>
+            {/* Git tree / attribution graph icon */}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="2.5" r="2" fill="white"/>
+              <line x1="8" y1="4.5" x2="8" y2="7" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="8" y1="7" x2="3.5" y2="10" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="8" y1="7" x2="12.5" y2="10" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="3.5" cy="12" r="2" fill="white"/>
+              <circle cx="12.5" cy="12" r="2" fill="white"/>
             </svg>
           </div>
           <span className="font-semibold text-slate-900 text-sm tracking-tight">Lineage</span>
@@ -39,7 +44,7 @@ export default function Nav() {
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
-            Live Demo
+            Demo
           </Link>
           <a
             href="https://github.com/simplyarfan/Lineage"
