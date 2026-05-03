@@ -1,0 +1,15 @@
+{
+  "task_id": "1a23b22c-aa9e-4e04-8bcc-16559cad0ba0",
+  "tool": "ibm-bob",
+  "model": "ibm/granite-3-8b-instruct",
+  "api_cost": 5.04,
+  "tokens_input": 2000000,
+  "tokens_output": 19800,
+  "context_length": 78300,
+  "cache_read": 77500,
+  "cache_write": 1900000,
+  "size_kb": 704,
+  "user_email": "syedarfan101@gmail.com",
+  "phase": "05-attribution",
+  "timestamp": "2026-05-03T02:30:00Z"
+}
