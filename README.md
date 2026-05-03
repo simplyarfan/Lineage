@@ -26,7 +26,7 @@ It ingests IBM Bob session exports and git history to produce a complete attribu
 
 ## Demo
 
-**[View Demo](https://lineage-demo.vercel.app)** — Public showcase with real attribution data from Lineage's own development history.
+**[View Demo](https://boblineage.vercel.app)** — Public showcase with real attribution data from Lineage's own development history.
 
 For the full local experience with live SQLite data:
 
@@ -191,7 +191,7 @@ WATSONX_ENDPOINT=https://eu-de.ml.cloud.ibm.com
 
 - **Category:** Developer Productivity Tools
 - **Core Technology:** IBM Bob + IBM watsonx.ai (Granite 3 8B Instruct)
-- **Demo:** [View Demo](https://lineage-demo.vercel.app)
+- **Demo:** [View Demo](https://boblineage.vercel.app)
 
 ---
 
