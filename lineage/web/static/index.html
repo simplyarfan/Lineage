@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lineage — AI Attribution Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body, #root {
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #root { display: flex; flex-direction: column; }
+
+    /* ── Nav ── */
+    .nav {
+      height: 48px; flex-shrink: 0;
+      background: #fff; border-bottom: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px;
+    }
+    .nav-left { display: flex; align-items: center; gap: 8px; }
+    .nav-icon { width: 26px; height: 26px; background: #6366f1; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; }
+    .nav-name { font-size: 14px; font-weight: 700; color: #0f172a; }
+    .nav-right { font-size: 11px; color: #94a3b8; background: #f1f5f9;
+      border: 1px solid #e2e8f0; border-radius: 20px; padding: 3px 10px; }
+
+    /* ── Stats Bar ── */
+    .stats-bar {
+      height: 52px; flex-shrink: 0;
+      background: #fff; border-bottom: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; gap: 12px;
+    }
+    .stats-group { display: flex; align-items: center; gap: 16px; }
+    .stat { display: flex; flex-direction: column; gap: 1px; }
+    .stat-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: #94a3b8; }
+    .stat-val { font-size: 16px; font-weight: 800; line-height: 1; }
+    .stat-sub { font-size: 10px; color: #94a3b8; }
+    .vdiv { width: 1px; height: 28px; background: #e2e8f0; }
+    .badge { display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-high { background: #fee2e2; color: #dc2626; }
+    .badge-med  { background: #fef3c7; color: #d97706; }
+    .badge-low  { background: #dcfce7; color: #16a34a; }
+
+    /* Risk Lens button */
+    .btn-lens {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 8px; border: 1px solid #e2e8f0;
+      font-size: 12px; font-weight: 600; cursor: pointer; background: #fff;
+      color: #64748b; transition: all .15s;
+    }
+    .btn-lens:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .btn-lens.on { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .btn-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    /* ── Body ── */
+    .body { flex: 1; display: flex; overflow: hidden; }
+
+    /* ── Left Panel ── */
+    .left { flex: 1; display: flex; flex-direction: column; overflow: hidden;
+      border-right: 1px solid #e2e8f0; }
+    .panel-hdr {
+      height: 36px; flex-shrink: 0;
+      background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 14px;
+    }
+    .panel-hdr-txt { font-size: 11px; color: #64748b; }
+    .back-btn { display: flex; align-items: center; gap: 5px;
+      font-size: 11px; color: #94a3b8; background: none; border: none;
+      cursor: pointer; }
+    .back-btn:hover { color: #0f172a; }
+    .risk-active { font-size: 11px; font-weight: 600; color: #dc2626;
+      display: flex; align-items: center; gap: 5px; }
+    .pulse { width: 6px; height: 6px; border-radius: 50%; background: #dc2626;
+      animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+
+    /* ── Treemap ── */
+    .treemap-wrap { flex: 1; position: relative; background: #fff; overflow: hidden; }
+    #tm { width: 100%; height: 100%; display: block; }
+    .tm-legend {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(255,255,255,.92); backdrop-filter: blur(4px);
+      border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 7px 12px; display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: #64748b; z-index: 5;
+    }
+    .tm-legend-item { display: flex; align-items: center; gap: 3px; }
+    .swatch { width: 11px; height: 11px; border-radius: 2px; }
+    .tm-hint {
+      position: absolute; bottom: 10px; left: 10px;
+      background: rgba(255,255,255,.85); border: 1px solid #e2e8f0;
+      border-radius: 6px; padding: 4px 10px;
+      font-size: 11px; color: #94a3b8; z-index: 5;
+    }
+    #tip {
+      position: fixed; background: #0f172a; color: #f8fafc;
+      padding: 8px 12px; border-radius: 6px; font-size: 12px;
+      pointer-events: none; z-index: 9999; display: none;
+      max-width: 260px; line-height: 1.6;
+      font-family: 'JetBrains Mono', monospace;
+      box-shadow: 0 4px 20px rgba(0,0,0,.35);
+    }
+
+    /* ── File Viewer ── */
+    .file-viewer { flex: 1; overflow-y: auto; background: #fff; }
+    .fv-header {
+      position: sticky; top: 0; z-index: 2;
+      background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+      padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .fv-path { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #475569; }
+    .fv-legend { display: flex; gap: 10px; font-size: 11px; color: #94a3b8; }
+    .fv-legend-item { display: flex; align-items: center; gap: 4px; }
+    .fv-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+    .fv-line {
+      display: flex; align-items: stretch;
+      border-bottom: 1px solid #f8fafc; min-height: 20px;
+      transition: background .08s;
+    }
+    .fv-line:hover { background: #f8fafc; }
+    .fv-line.is-ai:hover { background: #fef2f2; cursor: pointer; }
+    .fv-line.risk-hl { background: #fef2f2 !important; }
+
+    .fv-gutter { width: 3px; flex-shrink: 0; }
+    .fv-gutter.ai { background: #ef4444; }
+    .fv-gutter.human { background: #22c55e; }
+    .fv-gutter.unknown { background: #e2e8f0; }
+    .fv-gutter.ai.risk-hl { background: #dc2626; }
+
+    .fv-num { width: 42px; text-align: right; padding: 2px 8px 2px 0;
+      font-size: 11px; font-family: 'JetBrains Mono', monospace;
+      color: #cbd5e1; flex-shrink: 0; user-select: none; line-height: 16px; }
+    .fv-code { flex: 1; padding: 2px 12px; white-space: pre; overflow: hidden;
+      font-size: 12px; font-family: 'JetBrains Mono', monospace;
+      line-height: 16px; color: #334155; }
+    .fv-conf { padding: 2px 8px; font-size: 10px; color: #fca5a5;
+      opacity: 0; transition: opacity .1s; white-space: nowrap; flex-shrink: 0; }
+    .fv-line:hover .fv-conf { opacity: 1; }
+    .fv-footer { padding: 8px 14px; font-size: 11px; color: #94a3b8;
+      background: #f8fafc; border-top: 1px solid #e2e8f0; }
+
+    /* ── Right Panel ── */
+    .right { width: 290px; flex-shrink: 0; background: #fff;
+      display: flex; flex-direction: column; overflow: hidden; }
+    .prov-hdr {
+      height: 36px; flex-shrink: 0;
+      background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 14px;
+    }
+    .prov-title { display: flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: #64748b; }
+    .prov-red-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; }
+    .prov-close { background: none; border: none; cursor: pointer;
+      font-size: 16px; color: #94a3b8; line-height: 1; }
+    .prov-close:hover { color: #0f172a; }
+    .prov-ref { padding: 5px 14px; border-bottom: 1px solid #f1f5f9; background: #fafafa; }
+    .prov-ref-txt { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #64748b; }
+    .prov-ref-line { color: #6366f1; }
+
+    .prov-body { flex: 1; overflow-y: auto; padding: 14px; display: flex;
+      flex-direction: column; gap: 14px; }
+    .prov-sec label { display: block; font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; margin-bottom: 5px; }
+    .prov-code { font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px;
+      padding: 7px 9px; color: #475569; word-break: break-all; }
+    .prov-text { font-size: 12px; color: #475569; line-height: 1.6;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 9px; }
+    .prov-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+    .prov-tag { padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .prov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .prov-cell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 7px; }
+    .prov-cell.full { grid-column: 1/-1; }
+    .cell-lbl { font-size: 10px; color: #94a3b8; margin-bottom: 2px; }
+    .cell-val { font-size: 12px; font-weight: 600; color: #0f172a; word-break: break-word; }
+    .prov-foot { padding: 10px 14px; border-top: 1px solid #e2e8f0; background: #f8fafc; flex-shrink: 0; }
+    .prov-foot-txt { font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 5px; }
+
+    /* ── Placeholder ── */
+    .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 28px; text-align: center; color: #94a3b8; }
+    .ph-icon { width: 38px; height: 38px; background: #f1f5f9; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .ph-h { font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 5px; }
+    .ph-p { font-size: 12px; line-height: 1.6; }
+    .qs { margin-top: 18px; text-align: left; width: 100%; }
+    .qs-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: #94a3b8; margin-bottom: 8px; }
+    .qs-step { font-size: 12px; color: #64748b; display: flex; gap: 7px; margin-bottom: 5px; }
+    .qs-step span { color: #6366f1; }
+
+    /* ── Loading / Error ── */
+    .loading { display: flex; align-items: center; justify-content: center; flex: 1;
+      color: #94a3b8; font-size: 13px; gap: 8px; }
+    .spinner { width: 15px; height: 15px; border: 2px solid #e2e8f0;
+      border-top-color: #6366f1; border-radius: 50%;
+      animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .err { margin: 16px; padding: 14px; background: #fef2f2; border: 1px solid #fee2e2;
+      border-radius: 8px; font-size: 12px; color: #dc2626; line-height: 1.6; }
+
+    /* ── Footer ── */
+    .footer { height: 30px; flex-shrink: 0; background: #fff;
+      border-top: 1px solid #e2e8f0; display: flex; align-items: center;
+      justify-content: space-between; padding: 0 20px;
+      font-size: 11px; color: #94a3b8; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<div id="tip"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+const tip = document.getElementById('tip');
+
+/* ── helpers ─────────────────────────────────────────────────────────────── */
+function aiColor(pct, riskLens, isHigh) {
+  if (riskLens && isHigh)  return '#dc2626';
+  if (riskLens && !isHigh) return '#e2e8f0';
+  if (pct < 0.25) return '#86efac';
+  if (pct < 0.50) return '#fde68a';
+  if (pct < 0.75) return '#fca5a5';
+  return '#ef4444';
+}
+function fmtTs(ts) {
+  if (!ts) return 'N/A';
+  return new Date(ts * 1000).toLocaleString('en-US',
+    { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+const RISK_CLS = { high:'badge badge-high', medium:'badge badge-med', low:'badge badge-low' };
+const DOMAIN_CLS = { auth:'badge badge-high', payments:'badge badge-high',
+  data:'badge badge-med', ui:'badge badge-low', infra:'badge badge-low', other:'badge badge-low' };
+
+/* ── Treemap ─────────────────────────────────────────────────────────────── */
+function Treemap({ data, riskLens, onFileClick }) {
+  const ref = useRef(null);
+
+  const draw = useCallback(() => {
+    if (!ref.current || !data) return;
+    const svg = d3.select(ref.current);
+    svg.selectAll('*').remove();
+    const W = ref.current.clientWidth;
+    const H = ref.current.clientHeight;
+    if (!W || !H) return;
+
+    const root = d3.hierarchy(data)
+      .sum(d => d.value || 0)
+      .sort((a, b) => (b.value || 0) - (a.value || 0));
+
+    d3.treemap()
+      .tile(d3.treemapSquarify.ratio(1))
+      .size([W, H])
+      .paddingOuter(6)
+      .paddingInner(2)
+      .paddingTop(18)
+      .round(true)(root);
+
+    const g = svg.append('g');
+
+    // Group label
+    (root.children || []).forEach(grp => {
+      const w = grp.x1 - grp.x0;
+      if (w < 40) return;
+      g.append('text')
+        .attr('x', grp.x0 + 5).attr('y', grp.y0 + 12)
+        .attr('font-size', 9).attr('font-family', 'Inter,sans-serif')
+        .attr('font-weight', 700).attr('fill', '#94a3b8')
+        .attr('letter-spacing', '0.06em')
+        .text(() => {
+          const label = grp.data.name;
+          const chars = Math.floor(w / 6);
+          return label.length > chars ? label.slice(0, chars - 1) + '…' : label;
+        });
+    });
+
+    // Leaves
+    const cell = g.selectAll('g.leaf')
+      .data(root.leaves())
+      .join('g').attr('class', 'leaf')
+      .attr('transform', d => `translate(${d.x0},${d.y0})`)
+      .style('cursor', 'pointer');
+
+    cell.append('rect')
+      .attr('width',  d => Math.max(0, d.x1 - d.x0))
+      .attr('height', d => Math.max(0, d.y1 - d.y0))
+      .attr('rx', 3)
+      .attr('fill', d => {
+        const isHigh = ['auth','payments','data'].includes(d.data.domain) &&
+          !d.data.human_touched && (d.data.ai_pct || 0) > 0.6;
+        return aiColor(d.data.ai_pct || 0, riskLens, isHigh);
+      })
+      .attr('stroke', 'rgba(255,255,255,.35)').attr('stroke-width', 1);
+
+    // File name text
+    cell.append('text')
+      .attr('x', 4).attr('y', 13)
+      .attr('font-size', 9)
+      .attr('font-family', "'JetBrains Mono',monospace")
+      .attr('fill', d => (d.data.ai_pct||0) > 0.55 ? 'rgba(255,255,255,.85)' : 'rgba(15,23,42,.65)')
+      .text(d => {
+        const w = d.x1 - d.x0;
+        if (w < 30) return '';
+        const n = d.data.name || '';
+        return w < 65 ? n.slice(0, 4) + '…' : n;
+      });
+
+    // AI% text
+    cell.append('text')
+      .attr('x', 4).attr('y', 25)
+      .attr('font-size', 9).attr('font-family', 'Inter,sans-serif').attr('font-weight', 700)
+      .attr('fill', d => (d.data.ai_pct||0) > 0.55 ? 'rgba(255,255,255,.7)' : 'rgba(15,23,42,.4)')
+      .text(d => {
+        if (d.x1 - d.x0 < 32 || d.y1 - d.y0 < 28) return '';
+        return `${Math.round((d.data.ai_pct||0)*100)}%`;
+      });
+
+    // Events
+    cell
+      .on('mousemove', (evt, d) => {
+        const n = d.data;
+        const isHigh = ['auth','payments','data'].includes(n.domain) && (n.ai_pct||0) > 0.6;
+        tip.innerHTML = `
+          <div style="font-weight:600;margin-bottom:3px">${n.path||n.name}</div>
+          <div>${n.value} lines &nbsp;·&nbsp; ${Math.round((n.ai_pct||0)*100)}% AI-authored</div>
+          <div style="color:#94a3b8;margin-top:2px">domain: ${n.domain||'—'} · risk: ${n.risk||'—'}</div>
+          ${isHigh ? '<div style="color:#f87171;margin-top:4px;font-weight:600">⚠ Unreviewed high-risk AI code</div>' : ''}
+        `;
+        tip.style.display = 'block';
+        tip.style.left = (evt.clientX + 14) + 'px';
+        tip.style.top  = (evt.clientY - 10) + 'px';
+      })
+      .on('mouseleave', () => { tip.style.display = 'none'; })
+      .on('click', (_, d) => { if (d.data.path) onFileClick(d.data.path, d.data.session_id); });
+  }, [data, riskLens, onFileClick]);
+
+  useEffect(() => {
+    draw();
+    const ro = new ResizeObserver(draw);
+    if (ref.current) ro.observe(ref.current);
+    return () => ro.disconnect();
+  }, [draw]);
+
+  return (
+    <div className="treemap-wrap">
+      <svg ref={ref} id="tm" />
+      <div className="tm-legend">
+        <span style={{fontWeight:600,color:'#64748b'}}>AI%</span>
+        {[['#86efac','<25%'],['#fde68a','50%'],['#fca5a5','75%'],['#ef4444','100%']].map(([c,l])=>(
+          <div key={l} className="tm-legend-item">
+            <div className="swatch" style={{background:c}}/>
+            <span>{l}</span>
+          </div>
+        ))}
+      </div>
+      <div className="tm-hint">Click a file to view line attribution</div>
+    </div>
+  );
+}
+
+/* ── FileViewer ─────────────────────────────────────────────────────────── */
+function FileViewer({ filePath, data, riskLens, onLineClick }) {
+  if (!data) return <div className="loading"><div className="spinner"/>Loading…</div>;
+  const lines = data.lines || [];
+  const aiCount = lines.filter(l => l.type === 'ai').length;
+
+  return (
+    <div className="file-viewer">
+      <div className="fv-header">
+        <span className="fv-path">{filePath}</span>
+        <div className="fv-legend">
+          {[['#22c55e','Human'],['#ef4444','AI'],['#e2e8f0','Unknown']].map(([c,l])=>(
+            <div key={l} className="fv-legend-item">
+              <div className="fv-dot" style={{background:c}}/>
+              <span>{l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {lines.map(({line, content, type, session_id, attribution_confidence: conf}) => {
+        const isAi = type === 'ai';
+        const isHigh = isAi && riskLens;
+        return (
+          <div key={line}
+            className={`fv-line${isAi?' is-ai':''}${isHigh?' risk-hl':''}`}
+            onClick={() => isAi && session_id && onLineClick(line, session_id)}
+            title={isAi ? 'Click to trace AI provenance' : undefined}
+          >
+            <div className={`fv-gutter ${type}${isHigh?' risk-hl':''}`}/>
+            <div className="fv-num">{line}</div>
+            <div className="fv-code">{content || ' '}</div>
+            {isAi && conf > 0 && <div className="fv-conf">{Math.round(conf*100)}%</div>}
+          </div>
+        );
+      })}
+
+      {lines.length === 0 && (
+        <div style={{padding:20,color:'#94a3b8',fontSize:12}}>No attribution data.</div>
+      )}
+
+      <div className="fv-footer">
+        {aiCount} AI-attributed · {lines.length - aiCount} human · Click any red line for provenance
+      </div>
+    </div>
+  );
+}
+
+/* ── ProvenancePanel ────────────────────────────────────────────────────── */
+function Provenance({ session, filePath, lineNum, onClose }) {
+  if (!session) return null;
+  const rc = RISK_CLS[session.risk] || 'badge badge-low';
+  const dc = DOMAIN_CLS[session.domain] || 'badge badge-low';
+  return (
+    <>
+      <div className="prov-hdr">
+        <div className="prov-title"><div className="prov-red-dot"/>AI Provenance</div>
+        <button className="prov-close" onClick={onClose}>×</button>
+      </div>
+      {filePath && lineNum && (
+        <div className="prov-ref">
+          <span className="prov-ref-txt">
+            {filePath}<span className="prov-ref-line">:{lineNum}</span>
+          </span>
+        </div>
+      )}
+      <div className="prov-body">
+        <div className="prov-sec">
+          <label>Session ID</label>
+          <div className="prov-code">{session.id}</div>
+        </div>
+        {session.prompt_text && (
+          <div className="prov-sec">
+            <label>Prompt</label>
+            <div className="prov-text">
+              {session.prompt_text.slice(0, 280)}{session.prompt_text.length > 280 ? '…' : ''}
+            </div>
+          </div>
+        )}
+        <div className="prov-sec">
+          <label>Classification</label>
+          <div className="prov-tags">
+            <span className={dc}>{session.domain || 'other'}</span>
+            <span className={rc}>{session.risk || 'low'} risk</span>
+          </div>
+          {session.rationale && (
+            <div style={{marginTop:7,fontSize:11,color:'#64748b',lineHeight:1.6}}>{session.rationale}</div>
+          )}
+        </div>
+        <div className="prov-sec">
+          <label>Session Metadata</label>
+          <div className="prov-grid">
+            <div className="prov-cell">
+              <div className="cell-lbl">Model</div>
+              <div className="cell-val">{(session.model||'').replace('ibm/','')}</div>
+            </div>
+            <div className="prov-cell">
+              <div className="cell-lbl">Tool</div>
+              <div className="cell-val">{session.tool}</div>
+            </div>
+            <div className="prov-cell">
+              <div className="cell-lbl">API Cost</div>
+              <div className="cell-val">{session.api_cost} Bobcoins</div>
+            </div>
+            <div className="prov-cell">
+              <div className="cell-lbl">Tokens In</div>
+              <div className="cell-val">{(session.tokens_input||0).toLocaleString()}</div>
+            </div>
+            <div className="prov-cell full">
+              <div className="cell-lbl">Timestamp</div>
+              <div className="cell-val">{fmtTs(session.timestamp_start)}</div>
+            </div>
+          </div>
+        </div>
+        {session.files_modified?.length > 0 && (
+          <div className="prov-sec">
+            <label>Files Modified ({session.files_modified.length})</label>
+            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+              {session.files_modified.map(f=>(
+                <div key={f} className="prov-code" style={{padding:'4px 8px',fontSize:10}}>{f}</div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="prov-sec">
+          <label>Human Oversight</label>
+          <div style={{fontSize:12,color:'#64748b',display:'flex',alignItems:'center',gap:6}}>
+            <span style={{color:'#f59e0b'}}>●</span>
+            Implicit — no explicit approval recorded
+          </div>
+        </div>
+      </div>
+      <div className="prov-foot">
+        <div className="prov-foot-txt">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="6" cy="6" r="5.5" stroke="#94a3b8"/>
+            <path d="M6 3.5v3L8 8" stroke="#94a3b8" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          EU AI Act Article 12 — traceable record
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── StatsBar ────────────────────────────────────────────────────────────── */
+function StatsBar({ stats, riskLens, toggle }) {
+  if (!stats) return (
+    <div className="stats-bar">
+      <span style={{color:'#94a3b8',fontSize:12}}>Loading stats…</span>
+    </div>
+  );
+  const aiPct = stats.total_lines > 0
+    ? Math.round(stats.ai_lines / stats.total_lines * 100) : 0;
+  const rb = stats.risk_breakdown || {};
+  return (
+    <div className="stats-bar">
+      <div className="stats-group">
+        <div className="stat">
+          <span className="stat-lbl">Sessions</span>
+          <span className="stat-val" style={{color:'#6366f1'}}>{stats.total_sessions}</span>
+          <span className="stat-sub">IBM Bob</span>
+        </div>
+        <div className="vdiv"/>
+        <div className="stat">
+          <span className="stat-lbl">AI Spend</span>
+          <span className="stat-val">{(stats.total_cost||0).toFixed(2)}</span>
+          <span className="stat-sub">Bobcoins</span>
+        </div>
+        <div className="vdiv"/>
+        <div className="stat">
+          <span className="stat-lbl">AI-Authored</span>
+          <span className="stat-val" style={{color:'#ef4444'}}>{aiPct}%</span>
+          <span className="stat-sub">{(stats.ai_lines||0).toLocaleString()} lines</span>
+        </div>
+        <div className="vdiv"/>
+        <div className="stat">
+          <span className="stat-lbl">Risk</span>
+          <div style={{display:'flex',gap:5,marginTop:3}}>
+            {rb.high   > 0 && <span className="badge badge-high">{rb.high} high</span>}
+            {rb.medium > 0 && <span className="badge badge-med">{rb.medium} med</span>}
+            {rb.low    > 0 && <span className="badge badge-low">{rb.low} low</span>}
+          </div>
+        </div>
+      </div>
+      <button className={`btn-lens${riskLens?' on':''}`} onClick={toggle}>
+        <div className="btn-dot"/>
+        Risk Lens
+        {riskLens && <span style={{fontSize:10,opacity:.8}}>ON</span>}
+      </button>
+    </div>
+  );
+}
+
+/* ── App ─────────────────────────────────────────────────────────────────── */
+function App() {
+  const [stats,        setStats]        = useState(null);
+  const [tmData,       setTmData]       = useState(null);
+  const [selFile,      setSelFile]      = useState(null);
+  const [fileData,     setFileData]     = useState(null);
+  const [fileLoading,  setFileLoading]  = useState(false);
+  const [session,      setSession]      = useState(null);
+  const [provLine,     setProvLine]     = useState(null);
+  const [showProv,     setShowProv]     = useState(false);
+  const [riskLens,     setRiskLens]     = useState(false);
+  const [err,          setErr]          = useState(null);
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then(r => r.json()).then(setStats)
+      .catch(e => setErr(e.message));
+    fetch('/api/treemap')
+      .then(r => r.json()).then(setTmData)
+      .catch(e => setErr(e.message));
+  }, []);
+
+  const openFile = useCallback(async (path, sid) => {
+    setSelFile(path); setFileData(null);
+    setShowProv(false); setProvLine(null); setFileLoading(true);
+    try {
+      const r = await fetch(`/api/file/${encodeURIComponent(path)}`);
+      setFileData(await r.json());
+    } catch(e) { setErr(e.message); }
+    finally { setFileLoading(false); }
+  }, []);
+
+  const openProv = useCallback(async (line, sid) => {
+    setProvLine(line); setShowProv(true);
+    try {
+      const r = await fetch(`/api/session/${encodeURIComponent(sid)}`);
+      setSession(await r.json());
+    } catch(e) { setErr(e.message); }
+  }, []);
+
+  const back = () => {
+    setSelFile(null); setFileData(null);
+    setShowProv(false); setProvLine(null);
+  };
+
+  return (
+    <>
+      {/* Nav */}
+      <div className="nav">
+        <div className="nav-left">
+          <div className="nav-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 2h4v4H2zM8 2h4v4H8zM2 8h4v4H2zM8 8h4v4H8z" fill="white" opacity=".9"/>
+              <path d="M4 4L10 10M10 4L4 10" stroke="white" strokeWidth="1.2" opacity=".5"/>
+            </svg>
+          </div>
+          <span className="nav-name">Lineage</span>
+        </div>
+        <span className="nav-right">AI Attribution Dashboard · Local</span>
+      </div>
+
+      {/* Stats */}
+      <StatsBar stats={stats} riskLens={riskLens} toggle={() => setRiskLens(r => !r)} />
+
+      {/* Body */}
+      <div className="body">
+        {/* Left */}
+        <div className="left">
+          {selFile ? (
+            <>
+              <div className="panel-hdr">
+                <button className="back-btn" onClick={back}>← Back to treemap</button>
+                {riskLens
+                  ? <div className="risk-active"><div className="pulse"/>Risk Lens ON</div>
+                  : <span className="panel-hdr-txt">Click a red line for AI provenance</span>}
+              </div>
+              {fileLoading
+                ? <div className="loading"><div className="spinner"/>Loading…</div>
+                : <FileViewer filePath={selFile} data={fileData}
+                    riskLens={riskLens} onLineClick={openProv}/>}
+            </>
+          ) : (
+            <>
+              <div className="panel-hdr">
+                <span className="panel-hdr-txt">Attribution Treemap — files sized by LOC, colored by AI%</span>
+                {riskLens && (
+                  <div className="risk-active">
+                    <div className="pulse"/>Showing unreviewed high-risk AI code
+                  </div>
+                )}
+              </div>
+              {err
+                ? <div className="err">
+                    Error: {err}<br/>
+                    <small>Run: lineage init → scan → attribute → classify</small>
+                  </div>
+                : tmData
+                  ? <Treemap data={tmData} riskLens={riskLens} onFileClick={openFile}/>
+                  : <div className="loading"><div className="spinner"/>Loading treemap…</div>}
+            </>
+          )}
+        </div>
+
+        {/* Right */}
+        <div className="right">
+          {showProv && session
+            ? <Provenance session={session} filePath={selFile}
+                lineNum={provLine} onClose={() => setShowProv(false)}/>
+            : (
+              <div className="placeholder">
+                <div className="ph-icon">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <circle cx="9" cy="9" r="8.5" stroke="#94a3b8"/>
+                    <path d="M9 5v4l3 3" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div className="ph-h">Provenance Panel</div>
+                <p className="ph-p">
+                  {selFile
+                    ? 'Click any red (AI) line to trace it back to its Bob session.'
+                    : 'Click a file, then click a red line.'}
+                </p>
+                {!selFile && (
+                  <div className="qs">
+                    <div className="qs-lbl">Quick Start</div>
+                    {['Click any file in the treemap','Click a red (AI) line','See prompt, model, cost, risk','Toggle Risk Lens for audit view']
+                      .map((s,i) => <div key={i} className="qs-step"><span>→</span>{s}</div>)}
+                  </div>
+                )}
+              </div>
+            )
+          }
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="footer">
+        <span>Lineage · IBM Bob Dev Day 2026 · Real data from your repo</span>
+        <span>EU AI Act Article 12 — traceable audit records</span>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

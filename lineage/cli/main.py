@@ -286,6 +286,46 @@ def stats(repo):
                 count = row['count']
                 cost = row['cost'] if row['cost'] else 0.0
                 click.echo(f"  {model:<20} {count} sessions    {cost:.2f} coins")
+            click.echo()
+        
+        # Get classification breakdown
+        cursor = db.execute("""
+            SELECT classification_risk, COUNT(*) as count
+            FROM sessions
+            WHERE classification_risk IS NOT NULL
+            GROUP BY classification_risk
+            ORDER BY
+                CASE classification_risk
+                    WHEN 'high' THEN 1
+                    WHEN 'medium' THEN 2
+                    WHEN 'low' THEN 3
+                END
+        """)
+        by_risk = cursor.fetchall()
+        
+        cursor = db.execute("""
+            SELECT classification_domain, COUNT(*) as count
+            FROM sessions
+            WHERE classification_domain IS NOT NULL
+            GROUP BY classification_domain
+            ORDER BY count DESC
+        """)
+        by_domain = cursor.fetchall()
+        
+        if by_risk:
+            click.echo("By risk tier:")
+            for row in by_risk:
+                risk = row['classification_risk']
+                count = row['count']
+                click.echo(f"  {risk:<20} {count} sessions")
+            click.echo()
+        
+        if by_domain:
+            click.echo("By domain:")
+            for row in by_domain:
+                domain = row['classification_domain']
+                count = row['count']
+                click.echo(f"  {domain:<20} {count} sessions")
         
     finally:
         db.close()
@@ -293,20 +333,100 @@ def stats(repo):
 
 @cli.command()
 @click.option(
+    "--repo",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=".",
+    help="Path to git repository (default: current directory)",
+)
+@click.option(
     "--threshold",
     type=float,
     default=0.4,
     help="Minimum confidence score for attribution (0.0-1.0)",
 )
-def attribute(threshold):
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Re-run attribution even if attributions already exist",
+)
+def attribute(repo, threshold, force):
     """
     Match AI sessions to git commits using heuristic scoring.
     
-    [Phase 4] Analyzes git history and attributes commits to AI sessions based on
-    time proximity, file overlap, and author matching.
+    Analyzes git history and attributes commits to AI sessions based on
+    time proximity, file overlap, and author matching. Populates the
+    file_lines table with per-line attribution data.
     """
-    click.echo("⚠ Phase 4 will implement this")
-    click.echo(f"This command will match AI sessions to commits (threshold: {threshold}).")
+    from lineage.storage.database import DatabaseManager
+    from lineage.attribution.engine import AttributionEngine
+    
+    repo_path = Path(repo).resolve()
+    db_path = repo_path / ".lineage" / "lineage.db"
+    
+    # Check if database exists
+    if not db_path.exists():
+        click.echo("✗ Lineage database not found. Run 'lineage init' first.")
+        return
+    
+    # Check if sessions exist
+    db = DatabaseManager(db_path)
+    try:
+        cursor = db.execute("SELECT COUNT(*) as count FROM sessions")
+        row = cursor.fetchone()
+        session_count = row['count'] if row else 0
+        
+        if session_count == 0:
+            click.echo("✗ No sessions found. Run 'lineage scan' first.")
+            return
+        
+        # Check if attributions already exist
+        if not force:
+            cursor = db.execute("SELECT COUNT(*) as count FROM attributions")
+            row = cursor.fetchone()
+            attr_count = row['count'] if row else 0
+            
+            if attr_count > 0:
+                click.echo(f"⚠ {attr_count} attributions already exist. Use --force to re-run.")
+                return
+        
+        # Clear existing attributions if force flag is set
+        if force:
+            click.echo("Clearing existing attributions...")
+            db.execute("DELETE FROM attributions")
+            db.execute("DELETE FROM file_lines")
+            db.commit()
+        
+        # Run attribution engine
+        click.echo("╭──────────────────────────────────────╮")
+        click.echo("│  Lineage — Attribution Engine        │")
+        click.echo("╰──────────────────────────────────────╯")
+        click.echo()
+        
+        engine = AttributionEngine(repo_path, db, threshold)
+        result = engine.run()
+        
+        # Print results
+        click.echo(f"Walked {result.total_commits} commits")
+        click.echo(f"Attributed: {result.attributed_commits} commits to AI sessions")
+        click.echo(f"Unknown:    {result.unknown_commits} commits (marked as human-authored)")
+        click.echo()
+        
+        if result.attributed_commits > 0:
+            click.echo(f"High confidence (>=0.7):   {result.high_confidence} attributions")
+            click.echo(f"Medium confidence (>=0.4): {result.medium_confidence} attributions")
+            click.echo()
+        
+        click.echo(f"File lines inserted: {result.file_lines_inserted}")
+        click.echo(f"Sessions matched: {result.sessions_matched} / {result.total_sessions}")
+        click.echo()
+        click.echo("✓ Attribution complete")
+        
+    except Exception as e:
+        click.echo(f"✗ Attribution failed: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
 
 
 @cli.command()
@@ -315,17 +435,95 @@ def attribute(threshold):
     is_flag=True,
     help="Force re-classification of already classified sessions",
 )
-def classify(force):
+@click.option(
+    "--repo",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=".",
+    help="Path to git repository (default: current directory)",
+)
+def classify(force, repo):
     """
     Classify AI sessions by domain and risk tier using watsonx.ai.
     
-    [Phase 5] Calls IBM Granite model to classify sessions for EU AI Act compliance.
+    Uses IBM Granite-3-8b-instruct to classify sessions for EU AI Act compliance.
     """
-    click.echo("⚠ Phase 5 will implement this")
-    if force:
-        click.echo("This command will re-classify all sessions using watsonx.ai.")
-    else:
-        click.echo("This command will classify unclassified sessions using watsonx.ai.")
+    from lineage.storage.database import DatabaseManager
+    from lineage.classification.classifier import SessionClassifier
+    from lineage.classification.cache import ClassificationCache
+    
+    repo_path = Path(repo).resolve()
+    db_path = repo_path / ".lineage" / "lineage.db"
+    
+    # Check if database exists
+    if not db_path.exists():
+        click.echo("✗ Lineage database not found. Run 'lineage init' first.")
+        return
+    
+    # Load credentials from .env
+    env_path = repo_path / ".env"
+    credentials = {}
+    
+    if env_path.exists():
+        # Simple .env parser
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    credentials[key.strip()] = value.strip()
+    
+    # Check for required credentials
+    api_key = credentials.get('WATSONX_API_KEY') or os.environ.get('WATSONX_API_KEY')
+    project_id = credentials.get('WATSONX_PROJECT_ID') or os.environ.get('WATSONX_PROJECT_ID')
+    endpoint = credentials.get('WATSONX_ENDPOINT') or os.environ.get('WATSONX_ENDPOINT')
+    
+    if not all([api_key, project_id, endpoint]):
+        click.echo("✗ Missing watsonx.ai credentials")
+        click.echo("Set WATSONX_API_KEY, WATSONX_PROJECT_ID, WATSONX_ENDPOINT in .env file")
+        return
+    
+    # Initialize components (credentials are guaranteed to be strings here)
+    db = DatabaseManager(db_path)
+    cache = ClassificationCache(db)
+    classifier = SessionClassifier(str(api_key), str(project_id), str(endpoint))
+    
+    try:
+        # Get sessions to classify
+        if force:
+            sessions = cache.get_all_sessions()
+            click.echo(f"Re-classifying all {len(sessions)} sessions...")
+        else:
+            sessions = cache.needs_classification()
+            if not sessions:
+                click.echo("✓ All sessions already classified")
+                return
+            click.echo(f"Found {len(sessions)} sessions needing classification")
+        
+        # Print header
+        click.echo("╭──────────────────────────────────────╮")
+        click.echo("│  Lineage — Classification Results    │")
+        click.echo("╰──────────────────────────────────────╯")
+        click.echo(f"Classified {len(sessions)} sessions via watsonx.ai (Granite 3 8B)")
+        click.echo()
+        click.echo("Results:")
+        
+        # Classify each session
+        for session in sessions:
+            classification = classifier.classify(session)
+            cache.set(session.session_id, classification)
+            
+            # Print result
+            click.echo(f"  {session.session_id}: {classification['domain']} ({classification['risk_tier']} risk)")
+        
+        click.echo()
+        click.echo("Classification complete")
+        
+    except Exception as e:
+        click.echo(f"✗ Classification failed: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        db.close()
 
 
 @cli.command()
@@ -333,17 +531,43 @@ def classify(force):
     "--port",
     type=int,
     default=5000,
-    help="Port for local web server",
+    help="Port for local web server (default: 5000)",
 )
-def view(port):
+@click.option(
+    "--repo",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=".",
+    help="Path to git repository (default: current directory)",
+)
+def view(port, repo):
     """
-    Launch local web UI for visual exploration of attribution graph.
-    
-    [Phase 6] Starts Flask server with React SPA showing treemap, file viewer,
-    and provenance timeline.
+    Launch local web UI for visual exploration of the attribution graph.
+
+    Starts a Flask server and opens the treemap, file viewer, Risk Lens,
+    and provenance panel in your browser. All data is read from your local
+    Lineage SQLite database — real attribution from your real repo.
     """
-    click.echo("⚠ Phase 6 will implement this")
-    click.echo(f"This command will launch web UI at http://localhost:{port}")
+    import threading
+    import webbrowser
+    from lineage.web.app import create_app
+
+    repo_path = Path(repo).resolve()
+    db_path = repo_path / ".lineage" / "lineage.db"
+
+    if not db_path.exists():
+        click.echo("✗ Lineage database not found. Run 'lineage init' first.")
+        return
+
+    url = f"http://localhost:{port}"
+    app = create_app(db_path, repo_path)
+
+    click.echo(f"✓ Starting Lineage UI at {url}")
+    click.echo("  Press Ctrl+C to stop\n")
+
+    # Open browser after a short delay so Flask is ready
+    threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+
+    app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
 
 
 @cli.command()
