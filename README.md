@@ -14,13 +14,13 @@
 
 ## Overview
 
-**Lineage** is a developer-side attribution engine for AI-generated code. As AI coding tools become standard in software development, questions around authorship, provenance, and accountability are no longer hypothetical — they are the standard that regulators and enterprises globally are beginning to require.
+**Lineage** is a developer-side attribution engine for AI-generated code. As AI coding tools become standard in software development, questions around authorship, provenance, and accountability are no longer hypothetical. They are the standard that regulators and enterprises globally are beginning to require.
 
-Lineage answers: *"Who wrote this line — human or AI? Which session? Which model? Was it reviewed?"*
+Lineage answers: *"Who wrote this line: human or AI? Which session? Which model? Was it reviewed?"*
 
 It ingests IBM Bob session exports and git history to produce a complete attribution graph: every line of code tagged with its origin, the prompt that generated it, the model used, and whether a human re-touched it afterward.
 
-> "The next generation of software compliance isn't about what you ship — it's about who wrote it."
+> "The next generation of software compliance is not about what you ship. It is about who wrote it."
 
 ---
 
@@ -44,23 +44,20 @@ From Bob session export to complete audit trail in four commands.
 ```
   IBM Bob Sessions              Git History
   (.md + .meta.json)            (git log)
-          │                          │
-          └──────────┬───────────────┘
-                     ▼
+          |                          |
+          +-----------+--------------+
+                      |
             lineage scan
          (adapters/bob.py)
-                     │
-                     ▼
+                      |
             lineage attribute
          (attribution/engine.py)
          time · file overlap · author
-                     │
-                     ▼
+                      |
             lineage classify
          (watsonx.ai Granite 3 8B)
          domain · risk tier · rationale
-                     │
-                     ▼
+                      |
             lineage view
          treemap · file viewer · Risk Lens
          provenance panel · audit export
@@ -70,9 +67,9 @@ From Bob session export to complete audit trail in four commands.
 
 ## How It Was Built
 
-Lineage is a self-referential proof of concept. **IBM Bob** was the primary development tool for all phases — Phases 1 through 6 of the codebase were written entirely in Bob. The web UI (Phase 7) was built in Claude Code to stay within Bobcoin budget for the submission.
+Lineage is a self-referential proof of concept. **IBM Bob** was the primary development tool for all phases. Phases 1 through 6 of the codebase were written entirely in Bob. The web UI (Phase 7) was built in Claude Code to stay within Bobcoin budget for the submission.
 
-IBM Granite (via watsonx.ai) is used exclusively for **inference** — classifying Bob sessions by domain and risk tier. It does not write any code.
+IBM Granite (via watsonx.ai) is used exclusively for **inference**: classifying Bob sessions by domain and risk tier. It does not write any code.
 
 | Phase | What Was Built | Tool |
 |-------|---------------|------|
@@ -105,7 +102,7 @@ IBM Granite (via watsonx.ai) is used exclusively for **inference** — classifyi
 | Layer | Technology |
 |-------|-----------|
 | Primary IDE | IBM Bob (ibm/granite-3-8b-instruct) |
-| Inference | IBM watsonx.ai — Granite 3 8B Instruct |
+| Inference | IBM watsonx.ai: Granite 3 8B Instruct |
 | CLI | Python + Click |
 | Storage | SQLite (local-first, zero dependencies) |
 | Attribution | GitPython + heuristic scoring |
@@ -120,9 +117,9 @@ IBM Granite (via watsonx.ai) is used exclusively for **inference** — classifyi
 ```
 Lineage/
 ├── lineage/
-│   ├── cli/              # Click CLI — init, scan, attribute, classify, view, export
+│   ├── cli/              # Click CLI: init, scan, attribute, classify, view, export
 │   ├── core/             # Pydantic models, config, exceptions
-│   ├── adapters/         # Session parsers — BobSessionAdapter (+ future: Cursor, Copilot)
+│   ├── adapters/         # Session parsers: BobSessionAdapter (+ future: Cursor, Copilot)
 │   ├── attribution/      # GitWalker, AttributionScorer, AttributionEngine
 │   ├── classification/   # watsonx.ai classifier + cache
 │   ├── storage/          # SQLite schema, DatabaseManager
@@ -132,7 +129,7 @@ Lineage/
 ├── bob_sessions/         # Exported Bob session .md + .meta.json files
 ├── tests/                # Pytest unit tests
 ├── docs/                 # Architecture docs + phase summaries
-└── scripts/              # seed_demo.py — populates DB with real attribution data
+└── scripts/              # seed_demo.py: populates DB with real attribution data
 ```
 
 ---
@@ -190,7 +187,7 @@ WATSONX_ENDPOINT=https://eu-de.ml.cloud.ibm.com
 
 ## Hackathon Submission
 
-**IBM Bob Dev Day AI Demystified Hackathon 2026**
+**IBM Dev Day: Bob Edition 2026**
 
 - **Category:** Developer Productivity Tools
 - **Core Technology:** IBM Bob + IBM watsonx.ai (Granite 3 8B Instruct)
@@ -207,5 +204,5 @@ WATSONX_ENDPOINT=https://eu-de.ml.cloud.ibm.com
 ---
 
 <div align="center">
-  <sub>Built with IBM Bob for the IBM Dev Day AI Demystified Hackathon 2026</sub>
+  <sub>Built with IBM Bob for IBM Dev Day: Bob Edition 2026</sub>
 </div>

@@ -18,7 +18,7 @@ export default function Home() {
                   AI Code Attribution
                 </span>
                 <span className="text-xs text-slate-400">·</span>
-                <span className="text-xs text-slate-500">IBM Bob Dev Day Hackathon 2026</span>
+                <span className="text-xs text-slate-500">IBM Dev Day: Bob Edition 2026</span>
               </div>
 
               <h1 className="text-5xl font-bold text-slate-900 leading-tight tracking-tight mb-5">
@@ -237,7 +237,22 @@ export default function Home() {
         {/* Footer */}
         <footer className="border-t border-slate-200 py-6 px-6 bg-white">
           <div className="max-w-5xl mx-auto flex items-center justify-between text-xs text-slate-400 flex-wrap gap-3">
-            <span>Lineage · IBM Bob Dev Day Hackathon 2026 · Syed Arfan</span>
+            {/* Logo + name */}
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-indigo-600 rounded-md flex items-center justify-center flex-shrink-0">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                  <circle cx="7" cy="2" r="1.8" fill="white"/>
+                  <line x1="7" y1="3.8" x2="7" y2="6.5" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
+                  <line x1="7" y1="6.5" x2="3" y2="9.5" stroke="white" strokeWidth="1.3" strokeLinecap="round"/>
+                  <line x1="7" y1="6.5" x2="11" y2="9.5" stroke="white" strokeWidth="1.3" strokeLinecap="round"/>
+                  <circle cx="3" cy="11.5" r="1.8" fill="white"/>
+                  <circle cx="11" cy="11.5" r="1.8" fill="white"/>
+                </svg>
+              </div>
+              <span className="font-semibold text-slate-500 text-xs">Lineage</span>
+              <span className="text-slate-300">·</span>
+              <span>IBM Dev Day: Bob Edition 2026 · Syed Arfan</span>
+            </div>
             <div className="flex items-center gap-4">
               <span>Built with IBM Bob + watsonx.ai Granite</span>
               <a href="https://github.com/simplyarfan/Lineage" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">GitHub</a>
