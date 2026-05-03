@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "standard": "EU AI Act Article 12 — Record-keeping",
+  "generated_at": "2026-05-03T13:24:08.942265Z",
+  "tool": "lineage",
+  "tool_version": "0.1.0",
+  "repo": {
+    "path": "/Users/syedarfan/Documents/Projects/Lineage",
+    "head_sha": "14b230bf764a77a4a56ce070cb583dba0a4fe2ff",
+    "remote_url": "https://github.com/simplyarfan/Lineage"
+  },
+  "filters": {
+    "since": null,
+    "until": null,
+    "min_confidence": 0.4
+  },
+  "summary": {
+    "total_commits": 17,
+    "ai_attributed_commits": 0,
+    "human_only_commits": 17,
+    "total_sessions": 4,
+    "total_api_cost": 0,
+    "high_risk_contributions": 0,
+    "domains": {}
+  },
+  "records": []
+}

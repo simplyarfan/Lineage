@@ -4,6 +4,7 @@ Lineage CLI - Main command interface for AI code attribution.
 import click
 from pathlib import Path
 import os
+from datetime import datetime
 
 
 @click.group()
@@ -573,26 +574,125 @@ def view(port, repo):
 @cli.command()
 @click.option(
     "--format",
-    type=click.Choice(["eu-ai-act", "json", "pdf"], case_sensitive=False),
+    type=click.Choice(["eu-ai-act", "json"], case_sensitive=False),
     default="eu-ai-act",
-    help="Export format (eu-ai-act generates both JSON and PDF)",
+    help="Export format (default: eu-ai-act)",
+)
+@click.option(
+    "--since",
+    type=str,
+    default=None,
+    help="Start date filter (YYYY-MM-DD)",
+)
+@click.option(
+    "--until",
+    type=str,
+    default=None,
+    help="End date filter (YYYY-MM-DD)",
 )
 @click.option(
     "--output",
     type=click.Path(file_okay=True, dir_okay=False),
-    help="Output file path (default: lineage-audit-{timestamp}.{format})",
+    default="./audit-report.json",
+    help="Output file path (default: ./audit-report.json)",
 )
-def export(format, output):
+@click.option(
+    "--min-confidence",
+    type=float,
+    default=0.4,
+    help="Minimum attribution confidence (0.0-1.0, default: 0.4)",
+)
+@click.option(
+    "--repo",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=".",
+    help="Path to git repository (default: current directory)",
+)
+def export(format, since, until, output, min_confidence, repo):
     """
     Generate EU AI Act Article 12-compliant audit report.
     
-    [Phase 7] Exports complete provenance graph with session metadata,
-    classifications, and human oversight records.
+    Exports complete provenance graph with session metadata,
+    classifications, and human oversight records for regulatory compliance.
     """
-    click.echo("⚠ Phase 7 will implement this")
-    click.echo(f"This command will generate {format} audit report.")
-    if output:
-        click.echo(f"Output will be written to: {output}")
+    from lineage.export.eu_ai_act import EUAIActExporter
+    
+    repo_path = Path(repo).resolve()
+    db_path = repo_path / ".lineage" / "lineage.db"
+    
+    # Check if database exists
+    if not db_path.exists():
+        click.echo("✗ Lineage database not found. Run 'lineage init' first.")
+        return
+    
+    # Validate min_confidence
+    if not 0.0 <= min_confidence <= 1.0:
+        click.echo("✗ min-confidence must be between 0.0 and 1.0")
+        return
+    
+    # Validate date formats if provided
+    if since:
+        try:
+            datetime.strptime(since, "%Y-%m-%d")
+        except ValueError:
+            click.echo("✗ Invalid --since date format. Use YYYY-MM-DD")
+            return
+    
+    if until:
+        try:
+            datetime.strptime(until, "%Y-%m-%d")
+        except ValueError:
+            click.echo("✗ Invalid --until date format. Use YYYY-MM-DD")
+            return
+    
+    try:
+        click.echo("╭──────────────────────────────────────╮")
+        click.echo("│  Lineage — EU AI Act Export          │")
+        click.echo("╰──────────────────────────────────────╯")
+        click.echo()
+        
+        # Initialize exporter
+        exporter = EUAIActExporter(db_path)
+        
+        # Generate report
+        output_path = Path(output)
+        report = exporter.export(
+            since=since,
+            until=until,
+            min_confidence=min_confidence,
+            output_path=output_path,
+            format_type=format
+        )
+        
+        # Display summary
+        summary = report['summary']
+        click.echo(f"Export complete:")
+        click.echo(f"  Format: {format}")
+        click.echo(f"  Output: {output_path}")
+        click.echo()
+        click.echo(f"Summary:")
+        click.echo(f"  Total commits:           {summary['total_commits']}")
+        click.echo(f"  AI-attributed commits:   {summary['ai_attributed_commits']}")
+        click.echo(f"  Human-only commits:      {summary['human_only_commits']}")
+        click.echo(f"  Total sessions:          {summary['total_sessions']}")
+        click.echo(f"  Total API cost:          {summary['total_api_cost']:.2f} coins")
+        click.echo(f"  High-risk contributions: {summary['high_risk_contributions']}")
+        
+        if summary['domains']:
+            click.echo()
+            click.echo(f"Domains:")
+            for domain, count in sorted(summary['domains'].items(), key=lambda x: x[1], reverse=True):
+                click.echo(f"  {domain:<20} {count} contributions")
+        
+        click.echo()
+        click.echo("✓ Audit report generated successfully")
+        
+        exporter.close()
+        
+    except Exception as e:
+        click.echo(f"✗ Export failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

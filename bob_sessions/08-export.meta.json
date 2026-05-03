@@ -1,0 +1,13 @@
+{
+  "task_id": "e5f55f04-3790-4818-a9e2-9f039e978b97",
+  "phase": "Phase 8 — Audit Export (EU AI Act Article 12)",
+  "api_cost": 3.13,
+  "tokens_input": 1200000,
+  "tokens_output": 16800,
+  "context_length": 59200,
+  "cache_tokens": 58200,
+  "size_bytes": 799000,
+  "model": "claude-sonnet-4-6",
+  "tool": "bob",
+  "timestamp": "2026-05-03"
+}
