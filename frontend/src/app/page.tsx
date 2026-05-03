@@ -7,15 +7,14 @@ export default function Home() {
       <Nav />
       <main className="pt-14">
 
-        {/* Hero */}
-        <section className="bg-white px-6 pt-20 pb-16">
-          <div className="max-w-5xl mx-auto">
-            <div className="flex flex-col items-start max-w-3xl">
+        {/* Hero — split layout */}
+        <section className="bg-white px-6 pt-16 pb-12">
+          <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-center gap-12">
+            {/* Left: text */}
+            <div className="flex flex-col items-start max-w-xl flex-shrink-0">
               <div className="mb-5 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 uppercase tracking-widest">
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-                    <circle cx="5" cy="5" r="4"/>
-                  </svg>
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>
                   AI Code Attribution
                 </span>
                 <span className="text-xs text-slate-400">·</span>
@@ -27,9 +26,9 @@ export default function Home() {
                 <span className="text-indigo-600">AI-generated</span> code.
               </h1>
 
-              <p className="text-lg text-slate-600 leading-relaxed mb-8 max-w-2xl">
+              <p className="text-lg text-slate-600 leading-relaxed mb-8">
                 Lineage ingests IBM Bob session exports and your git history to produce a complete
-                attribution graph — every line tagged as human-authored, AI-authored, or unknown,
+                attribution graph. Every line tagged as human-authored, AI-authored, or unknown,
                 with full provenance back to the prompt and session that generated it.
               </p>
 
@@ -53,23 +52,16 @@ export default function Home() {
                 </a>
               </div>
             </div>
-          </div>
-        </section>
 
-        {/* Built with */}
-        <section className="bg-slate-50 border-y border-slate-200 py-5 px-6">
-          <div className="max-w-5xl mx-auto flex items-center gap-2 text-sm text-slate-500 flex-wrap">
-            <span className="font-medium text-slate-600">Built with</span>
-            <span className="px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-semibold text-slate-700">IBM Bob</span>
-            <span className="px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-semibold text-slate-700">watsonx.ai</span>
-            <span className="px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-semibold text-slate-700">ibm/granite-3-8b-instruct</span>
-            <span className="text-slate-300 mx-1">·</span>
-            <span className="text-xs text-slate-400">IBM Bob Dev Day Hackathon — May 2–3, 2026</span>
+            {/* Right: dashboard mockup */}
+            <div className="flex-1 w-full max-w-xl lg:max-w-none">
+              <DashboardMockup />
+            </div>
           </div>
         </section>
 
         {/* How it works — flow diagram */}
-        <section className="py-20 px-6 bg-white">
+        <section className="py-20 px-6 bg-slate-50 border-y border-slate-200">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-14">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">How Lineage works</p>
@@ -80,63 +72,26 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col md:flex-row items-center justify-center gap-0">
-              {/* Step 1: IBM Bob */}
               <FlowStep
-                icon={
-                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                    <rect width="28" height="28" rx="7" fill="#0f62fe"/>
-                    <text x="14" y="20" textAnchor="middle" fill="white" fontSize="14" fontWeight="800" fontFamily="Inter, system-ui">B</text>
-                  </svg>
-                }
+                icon={<BobIcon />}
                 label="IBM Bob"
                 desc="Session exports"
-                highlight
               />
               <FlowArrow />
-              {/* Step 2: lineage scan + attribute */}
               <FlowStep
-                icon={
-                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                    <rect width="28" height="28" rx="7" fill="#0f172a"/>
-                    <circle cx="14" cy="7" r="3" fill="white"/>
-                    <line x1="14" y1="10" x2="14" y2="14" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                    <line x1="14" y1="14" x2="8" y2="18" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-                    <line x1="14" y1="14" x2="20" y2="18" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-                    <circle cx="8" cy="21" r="2.5" fill="white"/>
-                    <circle cx="20" cy="21" r="2.5" fill="white"/>
-                  </svg>
-                }
+                icon={<LineageIcon />}
                 label="Lineage"
                 desc="scan + attribute"
-                highlight
               />
               <FlowArrow />
-              {/* Step 3: watsonx.ai Granite */}
               <FlowStep
-                icon={
-                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                    <rect width="28" height="28" rx="7" fill="#1d4ed8"/>
-                    <rect x="5" y="9" width="18" height="10" rx="2" fill="none" stroke="white" strokeWidth="1.5"/>
-                    <rect x="8" y="12" width="4" height="4" rx="1" fill="white"/>
-                    <rect x="16" y="12" width="4" height="4" rx="1" fill="white" opacity="0.5"/>
-                    <line x1="14" y1="7" x2="14" y2="9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                }
+                icon={<GraniteIcon />}
                 label="IBM Granite"
                 desc="domain + risk classification"
               />
               <FlowArrow />
-              {/* Step 4: Dashboard */}
               <FlowStep
-                icon={
-                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                    <rect width="28" height="28" rx="7" fill="#4f46e5"/>
-                    <rect x="5" y="5" width="8" height="8" rx="1.5" fill="white" opacity="0.9"/>
-                    <rect x="15" y="5" width="8" height="5" rx="1.5" fill="white" opacity="0.6"/>
-                    <rect x="15" y="12" width="8" height="11" rx="1.5" fill="white" opacity="0.8"/>
-                    <rect x="5" y="15" width="8" height="8" rx="1.5" fill="white" opacity="0.5"/>
-                  </svg>
-                }
+                icon={<DashboardIcon />}
                 label="Dashboard"
                 desc="treemap + provenance"
               />
@@ -145,13 +100,13 @@ export default function Home() {
         </section>
 
         {/* Problem */}
-        <section className="py-20 px-6 bg-slate-50 border-y border-slate-200">
+        <section className="py-20 px-6 bg-white">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-14">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">The Problem</p>
               <h2 className="text-3xl font-bold text-slate-900">The hidden cost of untracked AI code</h2>
               <p className="mt-3 text-slate-500 max-w-xl mx-auto">
-                AI coding tools accelerate development — but leave no paper trail. When stakeholders
+                AI coding tools accelerate development but leave no paper trail. When stakeholders
                 ask who wrote what, most teams have nothing.
               </p>
             </div>
@@ -165,7 +120,7 @@ export default function Home() {
                   </svg>
                 }
                 title="No attribution"
-                desc="git blame shows who committed, not whether an AI generated it. The human who pressed Commit isn't the author."
+                desc="git blame shows who committed, not whether an AI generated it. The human who pressed Commit is not the author."
               />
               <ProblemCard
                 icon={
@@ -175,7 +130,7 @@ export default function Home() {
                   </svg>
                 }
                 title="No session history"
-                desc="Which model? Which prompt? What context? Cursor, Copilot, Claude — all black boxes with no exportable records."
+                desc="Which model? Which prompt? What context? Cursor, Copilot, Claude are all black boxes with no exportable records."
               />
               <ProblemCard
                 icon={
@@ -185,14 +140,14 @@ export default function Home() {
                   </svg>
                 }
                 title="Accountability gap"
-                desc="Globally, standards for AI-generated code are being set — from enterprise policies to emerging regulation. Most teams aren't ready."
+                desc="Globally, standards for AI-generated code are being set. From enterprise policies to emerging regulation, most teams are not ready."
               />
             </div>
           </div>
         </section>
 
         {/* Why Bob */}
-        <section className="py-20 px-6 bg-white">
+        <section className="py-20 px-6 bg-slate-50 border-y border-slate-200">
           <div className="max-w-5xl mx-auto">
             <div className="max-w-3xl">
               <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest mb-3">Why IBM Bob</p>
@@ -200,13 +155,13 @@ export default function Home() {
                 Bob is the only tool that ships with structured session exports.
               </h2>
               <p className="text-slate-600 leading-relaxed mb-4">
-                Cursor, GitHub Copilot, and Claude Code are black boxes — there&apos;s no API to retrieve
+                Cursor, GitHub Copilot, and Claude Code are black boxes. There is no API to retrieve
                 what they generated, when, or why. IBM Bob ships exportable session reports built into
                 the product: task ID, model, cost, tokens, timestamp, prompt, files modified.
               </p>
               <p className="text-slate-600 leading-relaxed">
                 Lineage exists <strong className="text-slate-900">because Bob exists</strong>. Bob is
-                the reference standard for how AI coding tools should be built — auditable, traceable,
+                the reference standard for how AI coding tools should be built: auditable, traceable,
                 defensible. We take those exports and make them queryable.
               </p>
             </div>
@@ -214,7 +169,7 @@ export default function Home() {
         </section>
 
         {/* Features */}
-        <section className="py-20 px-6 bg-slate-50 border-t border-slate-200">
+        <section className="py-20 px-6 bg-white">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-14">
               <h2 className="text-3xl font-bold text-slate-900">Three views. One audit trail.</h2>
@@ -258,14 +213,14 @@ export default function Home() {
         </section>
 
         {/* CTA */}
-        <section className="py-20 px-6 bg-white border-t border-slate-200">
+        <section className="py-20 px-6 bg-slate-50 border-t border-slate-200">
           <div className="max-w-5xl mx-auto text-center">
             <h2 className="text-3xl font-bold text-slate-900 mb-4">
               Know what your AI wrote.
             </h2>
             <p className="text-slate-500 mb-8 max-w-lg mx-auto">
               AI-generated code is the new norm. The teams that track it will be the ones who can
-              defend it. Lineage makes attribution automatic — one install, one scan, complete provenance.
+              defend it. Lineage makes attribution automatic: one install, one scan, complete provenance.
             </p>
             <Link
               href="/demo"
@@ -280,9 +235,9 @@ export default function Home() {
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-slate-200 py-6 px-6 bg-slate-50">
+        <footer className="border-t border-slate-200 py-6 px-6 bg-white">
           <div className="max-w-5xl mx-auto flex items-center justify-between text-xs text-slate-400 flex-wrap gap-3">
-            <span>Lineage — IBM Bob Dev Day Hackathon 2026 · Syed Arfan</span>
+            <span>Lineage · IBM Bob Dev Day Hackathon 2026 · Syed Arfan</span>
             <div className="flex items-center gap-4">
               <span>Built with IBM Bob + watsonx.ai Granite</span>
               <a href="https://github.com/simplyarfan/Lineage" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">GitHub</a>
@@ -295,17 +250,165 @@ export default function Home() {
   )
 }
 
-function FlowStep({ icon, label, desc, highlight }: {
-  icon: React.ReactNode
-  label: string
-  desc: string
-  highlight?: boolean
-}) {
+/* ── Flow step icons ── */
+
+function BobIcon() {
+  // IBM Bob: "B" with IBM-style horizontal stripes
   return (
-    <div className={`flex flex-col items-center gap-3 w-44 ${highlight ? '' : 'opacity-90'}`}>
-      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm border ${
-        highlight ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50'
-      }`}>
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#0f172a"/>
+      {/* IBM-style striped B */}
+      <rect x="7" y="7" width="9" height="2" rx="0.5" fill="white"/>
+      <rect x="7" y="10" width="11" height="2" rx="0.5" fill="white"/>
+      <rect x="7" y="13" width="9" height="2" rx="0.5" fill="white"/>
+      <rect x="7" y="16" width="11" height="2" rx="0.5" fill="white"/>
+      <rect x="7" y="19" width="9" height="2" rx="0.5" fill="white"/>
+    </svg>
+  )
+}
+
+function LineageIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#0f172a"/>
+      <circle cx="14" cy="6" r="2.5" fill="white"/>
+      <line x1="14" y1="8.5" x2="14" y2="12" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+      <line x1="14" y1="12" x2="8" y2="16" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
+      <line x1="14" y1="12" x2="20" y2="16" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
+      <circle cx="8" cy="19" r="2.5" fill="white"/>
+      <circle cx="20" cy="19" r="2.5" fill="white"/>
+    </svg>
+  )
+}
+
+function GraniteIcon() {
+  // Chip/processor icon for IBM Granite model
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#0f172a"/>
+      {/* Chip body */}
+      <rect x="8" y="8" width="12" height="12" rx="2" stroke="white" strokeWidth="1.5"/>
+      {/* Inner grid */}
+      <rect x="11" y="11" width="6" height="6" rx="1" fill="white" opacity="0.9"/>
+      {/* Pins left */}
+      <line x1="5" y1="11" x2="8" y2="11" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      <line x1="5" y1="14" x2="8" y2="14" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      <line x1="5" y1="17" x2="8" y2="17" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      {/* Pins right */}
+      <line x1="20" y1="11" x2="23" y2="11" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      <line x1="20" y1="14" x2="23" y2="14" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      <line x1="20" y1="17" x2="23" y2="17" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      {/* Pins top */}
+      <line x1="11" y1="5" x2="11" y2="8" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      <line x1="17" y1="5" x2="17" y2="8" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      {/* Pins bottom */}
+      <line x1="11" y1="20" x2="11" y2="23" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      <line x1="17" y1="20" x2="17" y2="23" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function DashboardIcon() {
+  // Treemap layout icon
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#0f172a"/>
+      {/* Treemap blocks */}
+      <rect x="5" y="5" width="10" height="11" rx="1.5" fill="white" opacity="0.9"/>
+      <rect x="17" y="5" width="6" height="6" rx="1.5" fill="white" opacity="0.6"/>
+      <rect x="17" y="13" width="6" height="10" rx="1.5" fill="white" opacity="0.8"/>
+      <rect x="5" y="18" width="10" height="5" rx="1.5" fill="white" opacity="0.5"/>
+    </svg>
+  )
+}
+
+/* ── Dashboard mockup ── */
+
+function DashboardMockup() {
+  return (
+    <div className="w-full rounded-2xl border border-slate-200 shadow-xl overflow-hidden bg-white">
+      {/* Window chrome */}
+      <div className="flex items-center gap-2 px-4 py-3 bg-slate-100 border-b border-slate-200">
+        <div className="w-3 h-3 rounded-full bg-red-400"/>
+        <div className="w-3 h-3 rounded-full bg-yellow-400"/>
+        <div className="w-3 h-3 rounded-full bg-green-400"/>
+        <span className="ml-3 text-xs font-mono text-slate-500">lineage view</span>
+      </div>
+
+      {/* Stats bar */}
+      <div className="flex items-center gap-6 px-4 py-2.5 bg-white border-b border-slate-100 text-xs">
+        <StatPill label="Sessions" value="4" />
+        <StatPill label="Cost" value="15.97 coins" />
+        <StatPill label="AI Lines" value="63%" color="text-red-500" />
+        <StatPill label="Risk" value="3 medium" color="text-amber-600" />
+      </div>
+
+      {/* Treemap */}
+      <div className="p-3 bg-white" style={{ height: 220 }}>
+        <div className="flex gap-1.5 h-full">
+          {/* Left column */}
+          <div className="flex flex-col gap-1.5 flex-1">
+            <TreeBlock label="lineage/cli/main.py" pct={72} color="#ef4444" height="50%" />
+            <TreeBlock label="lineage/storage/database.py" pct={85} color="#ef4444" height="30%" />
+            <TreeBlock label="docs/ARCHITECTURE.md" pct={15} color="#22c55e" height="20%" />
+          </div>
+          {/* Middle column */}
+          <div className="flex flex-col gap-1.5" style={{ width: '32%' }}>
+            <TreeBlock label="lineage/attribution/engine.py" pct={88} color="#ef4444" height="45%" />
+            <TreeBlock label="lineage/adapters/bob.py" pct={92} color="#dc2626" height="35%" />
+            <TreeBlock label="tests/unit" pct={82} color="#f87171" height="20%" />
+          </div>
+          {/* Right column */}
+          <div className="flex flex-col gap-1.5" style={{ width: '22%' }}>
+            <TreeBlock label="classification" pct={94} color="#dc2626" height="60%" />
+            <TreeBlock label="core" pct={78} color="#ef4444" height="40%" />
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 px-4 py-2 border-t border-slate-100 text-xs text-slate-500">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm bg-red-500 inline-block"/>AI-authored
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block"/>Human-authored
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm bg-slate-300 inline-block"/>Unknown
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function StatPill({ label, value, color = 'text-slate-900' }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-slate-400" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>{label}</span>
+      <span className={`font-bold ${color}`} style={{ fontSize: 13 }}>{value}</span>
+    </div>
+  )
+}
+
+function TreeBlock({ label, pct, color, height }: { label: string; pct: number; color: string; height: string }) {
+  return (
+    <div
+      className="rounded-md flex flex-col justify-end p-1.5 relative overflow-hidden cursor-pointer transition-opacity hover:opacity-90"
+      style={{ backgroundColor: color, height, minHeight: 28 }}
+    >
+      <span className="text-white font-semibold leading-tight" style={{ fontSize: 9 }}>{label.split('/').pop()}</span>
+      <span className="text-white/70" style={{ fontSize: 8 }}>{pct}% AI</span>
+    </div>
+  )
+}
+
+/* ── Shared components ── */
+
+function FlowStep({ icon, label, desc }: { icon: React.ReactNode; label: string; desc: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 w-44">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center border border-slate-200 bg-white shadow-sm">
         {icon}
       </div>
       <div className="text-center">
